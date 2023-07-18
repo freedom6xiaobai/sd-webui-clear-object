@@ -1,0 +1,12 @@
+/*
+ Copyright (C) 2023 by Artem Khrapov (kabachuha)
+ Read LICENSE for usage terms.
+*/
+
+#chosen_file .w-full, #inpainting_chosen_file .w-full {
+	display: flex !important;
+	align-items: flex-start !important;
+	justify-content: center !important;
+	height: 85px !important;
+}
+
