@@ -7,4 +7,11 @@ Auto1111 extension implementing various clear object models, such as ModelScope 
 ### ModelScope
  
 ### Download Model
+```
 https://drive.google.com/drive/folders/1y7Irxm3HSHGvp546hZdAZwuNmhLUVcjO
+```
+
+### Download pip modules
+```
+pip install git+https://github.com/nirnayroy/neuralgym.git
+```

@@ -1,6 +1,6 @@
 PyYAML==6.0
 tensorflow==2.13.0
 Pillow==10.0.0
-neuralgym @ git+https://github.com/nirnayroy/neuralgym.git@41f9089ca876ff1943629d4fb976448dc92b7efa
+#neuralgym @ git+https://github.com/nirnayroy/neuralgym.git@41f9089ca876ff1943629d4fb976448dc92b7efa
 numpy==1.24.3
 opencv-python==4.8.0.74

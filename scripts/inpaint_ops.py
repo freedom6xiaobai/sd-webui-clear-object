@@ -1,3 +1,22 @@
+import sys, os
+
+basedirs = [os.getcwd()]
+if 'google.colab' in sys.modules:
+    basedirs.append(
+        '/content/gdrive/MyDrive/sd/stable-diffusion-webui')  # hardcode as TheLastBen's colab seems to be the primal source
+
+for basedir in basedirs:
+    deforum_paths_to_ensure = [basedir + '/extensions/sd-webui-clear-object/scripts', basedir]
+
+    for deforum_scripts_path_fix in deforum_paths_to_ensure:
+        if not deforum_scripts_path_fix in sys.path:
+            sys.path.extend([deforum_scripts_path_fix])
+
+current_directory = os.path.dirname(os.path.abspath(__file__))
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
+
+
 import logging
 import math
 
@@ -16,6 +35,12 @@ from neuralgym.ops.summary_ops import *
 
 
 logger = logging.getLogger()
+
+current_directory = os.path.dirname(os.path.abspath(__file__))
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
+
+
 np.random.seed(2018)
 
 

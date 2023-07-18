@@ -29,10 +29,6 @@ current_directory = os.path.dirname(os.path.abspath(__file__))
 if current_directory not in sys.path:
     sys.path.append(current_directory)
 
-current_directory = os.path.dirname(os.path.abspath(__file__))
-if current_directory not in sys.path:
-    sys.path.append(current_directory)
-
 
 def get_clearobject_version():
     return '1.0'

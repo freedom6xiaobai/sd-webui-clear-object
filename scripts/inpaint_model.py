@@ -1,3 +1,23 @@
+import sys, os
+
+basedirs = [os.getcwd()]
+if 'google.colab' in sys.modules:
+    basedirs.append(
+        '/content/gdrive/MyDrive/sd/stable-diffusion-webui')  # hardcode as TheLastBen's colab seems to be the primal source
+
+for basedir in basedirs:
+    deforum_paths_to_ensure = [basedir + '/extensions/sd-webui-clear-object/scripts', basedir]
+
+    for deforum_scripts_path_fix in deforum_paths_to_ensure:
+        if not deforum_scripts_path_fix in sys.path:
+            sys.path.extend([deforum_scripts_path_fix])
+
+current_directory = os.path.dirname(os.path.abspath(__file__))
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
+
+
+
 """ common model for DCGAN """
 import logging
 
@@ -21,6 +41,12 @@ from inpaint_ops import resize_mask_like, contextual_attention
 
 
 logger = logging.getLogger()
+
+
+current_directory = os.path.dirname(os.path.abspath(__file__))
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
+
 
 
 class InpaintCAModel(Model):
