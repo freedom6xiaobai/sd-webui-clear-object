@@ -16,8 +16,6 @@ current_directory = os.path.dirname(os.path.abspath(__file__))
 if current_directory not in sys.path:
     sys.path.append(current_directory)
 
-
-
 """ common model for DCGAN """
 import logging
 
@@ -39,22 +37,18 @@ from inpaint_ops import gen_conv, gen_deconv, dis_conv
 from inpaint_ops import random_bbox, bbox2mask, local_patch, brush_stroke_mask
 from inpaint_ops import resize_mask_like, contextual_attention
 
-
 logger = logging.getLogger()
-
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 if current_directory not in sys.path:
     sys.path.append(current_directory)
 
 
-
 class InpaintCAModel(Model):
     def __init__(self):
         super().__init__('InpaintCAModel')
 
-    def build_inpaint_net(self, x, mask, reuse=False,
-                          training=True, padding='SAME', name='inpaint_net'):
+    def build_inpaint_net(self, x, mask, name='inpaint_net'):
         """Inpaint network.
 
         Args:
@@ -66,73 +60,73 @@ class InpaintCAModel(Model):
         xin = x
         offset_flow = None
         ones_x = tf.ones_like(x)[:, :, :, 0:1]
-        x = tf.concat([x, ones_x, ones_x*mask], axis=3)
+        x = tf.concat([x, ones_x, ones_x * mask], axis=3)
 
         # two stage network
         cnum = 48
-        with tf.compat.v1.variable_scope(name, reuse=reuse):
-        # with tf.compat.v1.variable_scope(name, reuse=reuse), \
-                # slim.arg_scope([gen_conv, gen_deconv],
-                #           training=training, padding=padding):
+        with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
+            # with tf.compat.v1.variable_scope(name, reuse=reuse), \
+            # slim.arg_scope([gen_conv, gen_deconv],
+            #           training=training, padding=padding):
             # stage1
             x = gen_conv(x, cnum, 5, 1, name='conv1')
-            x = gen_conv(x, 2*cnum, 3, 2, name='conv2_downsample')
-            x = gen_conv(x, 2*cnum, 3, 1, name='conv3')
-            x = gen_conv(x, 4*cnum, 3, 2, name='conv4_downsample')
-            x = gen_conv(x, 4*cnum, 3, 1, name='conv5')
-            x = gen_conv(x, 4*cnum, 3, 1, name='conv6')
+            x = gen_conv(x, 2 * cnum, 3, 2, name='conv2_downsample')
+            x = gen_conv(x, 2 * cnum, 3, 1, name='conv3')
+            x = gen_conv(x, 4 * cnum, 3, 2, name='conv4_downsample')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='conv5')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='conv6')
             mask_s = resize_mask_like(mask, x)
-            x = gen_conv(x, 4*cnum, 3, rate=2, name='conv7_atrous')
-            x = gen_conv(x, 4*cnum, 3, rate=4, name='conv8_atrous')
-            x = gen_conv(x, 4*cnum, 3, rate=8, name='conv9_atrous')
-            x = gen_conv(x, 4*cnum, 3, rate=16, name='conv10_atrous')
-            x = gen_conv(x, 4*cnum, 3, 1, name='conv11')
-            x = gen_conv(x, 4*cnum, 3, 1, name='conv12')
-            x = gen_deconv(x, 2*cnum, name='conv13_upsample')
-            x = gen_conv(x, 2*cnum, 3, 1, name='conv14')
+            x = gen_conv(x, 4 * cnum, 3, rate=2, name='conv7_atrous')
+            x = gen_conv(x, 4 * cnum, 3, rate=4, name='conv8_atrous')
+            x = gen_conv(x, 4 * cnum, 3, rate=8, name='conv9_atrous')
+            x = gen_conv(x, 4 * cnum, 3, rate=16, name='conv10_atrous')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='conv11')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='conv12')
+            x = gen_deconv(x, 2 * cnum, name='conv13_upsample')
+            x = gen_conv(x, 2 * cnum, 3, 1, name='conv14')
             x = gen_deconv(x, cnum, name='conv15_upsample')
-            x = gen_conv(x, cnum//2, 3, 1, name='conv16')
+            x = gen_conv(x, cnum // 2, 3, 1, name='conv16')
             x = gen_conv(x, 3, 3, 1, activation=None, name='conv17')
             x = tf.nn.tanh(x)
             x_stage1 = x
 
             # stage2, paste result as input
-            x = x*mask + xin[:, :, :, 0:3]*(1.-mask)
+            x = x * mask + xin[:, :, :, 0:3] * (1. - mask)
             x.set_shape(xin[:, :, :, 0:3].get_shape().as_list())
             # conv branch
             # xnow = tf.concat([x, ones_x, ones_x*mask], axis=3)
             xnow = x
             x = gen_conv(xnow, cnum, 5, 1, name='xconv1')
             x = gen_conv(x, cnum, 3, 2, name='xconv2_downsample')
-            x = gen_conv(x, 2*cnum, 3, 1, name='xconv3')
-            x = gen_conv(x, 2*cnum, 3, 2, name='xconv4_downsample')
-            x = gen_conv(x, 4*cnum, 3, 1, name='xconv5')
-            x = gen_conv(x, 4*cnum, 3, 1, name='xconv6')
-            x = gen_conv(x, 4*cnum, 3, rate=2, name='xconv7_atrous')
-            x = gen_conv(x, 4*cnum, 3, rate=4, name='xconv8_atrous')
-            x = gen_conv(x, 4*cnum, 3, rate=8, name='xconv9_atrous')
-            x = gen_conv(x, 4*cnum, 3, rate=16, name='xconv10_atrous')
+            x = gen_conv(x, 2 * cnum, 3, 1, name='xconv3')
+            x = gen_conv(x, 2 * cnum, 3, 2, name='xconv4_downsample')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='xconv5')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='xconv6')
+            x = gen_conv(x, 4 * cnum, 3, rate=2, name='xconv7_atrous')
+            x = gen_conv(x, 4 * cnum, 3, rate=4, name='xconv8_atrous')
+            x = gen_conv(x, 4 * cnum, 3, rate=8, name='xconv9_atrous')
+            x = gen_conv(x, 4 * cnum, 3, rate=16, name='xconv10_atrous')
             x_hallu = x
             # attention branch
             x = gen_conv(xnow, cnum, 5, 1, name='pmconv1')
             x = gen_conv(x, cnum, 3, 2, name='pmconv2_downsample')
-            x = gen_conv(x, 2*cnum, 3, 1, name='pmconv3')
-            x = gen_conv(x, 4*cnum, 3, 2, name='pmconv4_downsample')
-            x = gen_conv(x, 4*cnum, 3, 1, name='pmconv5')
-            x = gen_conv(x, 4*cnum, 3, 1, name='pmconv6',
-                                activation=tf.nn.relu)
+            x = gen_conv(x, 2 * cnum, 3, 1, name='pmconv3')
+            x = gen_conv(x, 4 * cnum, 3, 2, name='pmconv4_downsample')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='pmconv5')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='pmconv6',
+                         activation=tf.nn.relu)
             x, offset_flow = contextual_attention(x, x, mask_s, 3, 1, rate=2)
-            x = gen_conv(x, 4*cnum, 3, 1, name='pmconv9')
-            x = gen_conv(x, 4*cnum, 3, 1, name='pmconv10')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='pmconv9')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='pmconv10')
             pm = x
             x = tf.concat([x_hallu, pm], axis=3)
 
-            x = gen_conv(x, 4*cnum, 3, 1, name='allconv11')
-            x = gen_conv(x, 4*cnum, 3, 1, name='allconv12')
-            x = gen_deconv(x, 2*cnum, name='allconv13_upsample')
-            x = gen_conv(x, 2*cnum, 3, 1, name='allconv14')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='allconv11')
+            x = gen_conv(x, 4 * cnum, 3, 1, name='allconv12')
+            x = gen_deconv(x, 2 * cnum, name='allconv13_upsample')
+            x = gen_conv(x, 2 * cnum, 3, 1, name='allconv14')
             x = gen_deconv(x, cnum, name='allconv15_upsample')
-            x = gen_conv(x, cnum//2, 3, 1, name='allconv16')
+            x = gen_conv(x, cnum // 2, 3, 1, name='allconv16')
             x = gen_conv(x, 3, 3, 1, activation=None, name='allconv17')
             x = tf.nn.tanh(x)
             x_stage2 = x
@@ -142,11 +136,11 @@ class InpaintCAModel(Model):
         with tf.compat.v1.variable_scope('sn_patch_gan', reuse=reuse):
             cnum = 64
             x = dis_conv(x, cnum, name='conv1', training=training)
-            x = dis_conv(x, cnum*2, name='conv2', training=training)
-            x = dis_conv(x, cnum*4, name='conv3', training=training)
-            x = dis_conv(x, cnum*4, name='conv4', training=training)
-            x = dis_conv(x, cnum*4, name='conv5', training=training)
-            x = dis_conv(x, cnum*4, name='conv6', training=training)
+            x = dis_conv(x, cnum * 2, name='conv2', training=training)
+            x = dis_conv(x, cnum * 4, name='conv3', training=training)
+            x = dis_conv(x, cnum * 4, name='conv4', training=training)
+            x = dis_conv(x, cnum * 4, name='conv5', training=training)
+            x = dis_conv(x, cnum * 4, name='conv6', training=training)
             x = flatten(x, name='flatten')
             return x
 
@@ -177,19 +171,17 @@ class InpaintCAModel(Model):
             tf.float32
         )
 
-        batch_incomplete = batch_pos*(1.-mask)
+        batch_incomplete = batch_pos * (1. - mask)
         if FLAGS.guided:
             edge = edge * mask
             xin = tf.concat([batch_incomplete, edge], axis=3)
         else:
             xin = batch_incomplete
-        x1, x2, offset_flow = self.build_inpaint_net(
-            xin, mask, reuse=reuse, training=training,
-            padding=FLAGS.padding)
+        x1, x2, offset_flow = self.build_inpaint_net(xin, mask)
         batch_predicted = x2
         losses = {}
         # apply mask and complete image
-        batch_complete = batch_predicted*mask + batch_incomplete*(1.-mask)
+        batch_complete = batch_predicted * mask + batch_incomplete * (1. - mask)
         # local patches
         losses['ae_loss'] = FLAGS.l1_loss_alpha * tf.reduce_mean(tf.abs(batch_pos - x1))
         losses['ae_loss'] += FLAGS.l1_loss_alpha * tf.reduce_mean(tf.abs(batch_pos - x2))
@@ -213,7 +205,7 @@ class InpaintCAModel(Model):
         # gan
         batch_pos_neg = tf.concat([batch_pos, batch_complete], axis=0)
         if FLAGS.gan_with_mask:
-            batch_pos_neg = tf.concat([batch_pos_neg, tf.tile(mask, [FLAGS.batch_size*2, 1, 1, 1])], axis=3)
+            batch_pos_neg = tf.concat([batch_pos_neg, tf.tile(mask, [FLAGS.batch_size * 2, 1, 1, 1])], axis=3)
         if FLAGS.guided:
             # conditional GANs
             batch_pos_neg = tf.concat([batch_pos_neg, tf.tile(edge, [2, 1, 1, 1])], axis=3)
@@ -259,19 +251,17 @@ class InpaintCAModel(Model):
         )
 
         batch_pos = batch_data / 127.5 - 1.
-        batch_incomplete = batch_pos*(1.-mask)
+        batch_incomplete = batch_pos * (1. - mask)
         if FLAGS.guided:
             edge = edge * mask
             xin = tf.concat([batch_incomplete, edge], axis=3)
         else:
             xin = batch_incomplete
         # inpaint
-        x1, x2, offset_flow = self.build_inpaint_net(
-            xin, mask, reuse=True,
-            training=False, padding=FLAGS.padding)
+        x1, x2, offset_flow = self.build_inpaint_net(xin, mask)
         batch_predicted = x2
         # apply mask and reconstruct
-        batch_complete = batch_predicted*mask + batch_incomplete*(1.-mask)
+        batch_complete = batch_predicted * mask + batch_incomplete * (1. - mask)
         # global image visualization
         if FLAGS.guided:
             viz_img = [
@@ -286,17 +276,16 @@ class InpaintCAModel(Model):
                        func=tf.compat.v1.image.resize_bilinear))
         images_summary(
             tf.concat(viz_img, axis=2),
-            name+'_raw_incomplete_complete', FLAGS.viz_max_out)
+            name + '_raw_incomplete_complete', FLAGS.viz_max_out)
         return batch_complete
 
     def build_static_infer_graph(self, FLAGS, batch_data, name):
         """
         """
         # generate mask, 1 represents masked point
-        bbox = (tf.constant(FLAGS.height//2), tf.constant(FLAGS.width//2),
+        bbox = (tf.constant(FLAGS.height // 2), tf.constant(FLAGS.width // 2),
                 tf.constant(FLAGS.height), tf.constant(FLAGS.width))
         return self.build_infer_graph(FLAGS, batch_data, bbox, name)
-
 
     def build_server_graph(self, FLAGS, batch_data, reuse=False, is_training=False):
         """
@@ -318,9 +307,8 @@ class InpaintCAModel(Model):
         else:
             xin = batch_incomplete
         # inpaint
-        x1, x2, flow = self.build_inpaint_net(
-            xin, masks, reuse=reuse, training=is_training)
+        x1, x2, flow = self.build_inpaint_net(xin, masks)
         batch_predict = x2
         # apply mask and reconstruct
-        batch_complete = batch_predict*masks + batch_incomplete*(1-masks)
+        batch_complete = batch_predict * masks + batch_incomplete * (1 - masks)
         return batch_complete
